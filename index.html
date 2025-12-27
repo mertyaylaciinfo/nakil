@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulut Masaüstü - Dosya Yöneticisi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; 
+            user-select: none; 
+        }
+
+        .desktop-bg {
+            background: url('https://images.unsplash.com/photo-1477346611705-65d1883cee1e?q=80&w=2070&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .icon-item {
+            transition: transform 0.1s, background-color 0.2s;
+            touch-action: none;
+            border: 1px solid transparent;
+        }
+        
+        .icon-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .icon-item.selected {
+            background-color: rgba(59, 130, 246, 0.4);
+            border: 1px solid rgba(59, 130, 246, 0.8);
+            border-radius: 0.5rem;
+        }
+
+        .drag-active {
+            opacity: 0.8;
+            cursor: grabbing;
+            z-index: 50 !important;
+            pointer-events: none; 
+        }
+        
+        .drop-target {
+            background-color: rgba(34, 197, 94, 0.4) !important;
+            transform: scale(1.1);
+            border-radius: 0.5rem;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
+        }
+
+        /* --- Viewer Modal Stilleri --- */
+        .viewer-backdrop {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Thumbnail Image Style */
+        .thumb-img {
+            object-fit: cover;
+            width: 100%;
+            height: 100%;
+            border-radius: 4px;
+            pointer-events: none; /* Sürükleme çakışmasını önle */
+        }
+    </style>
+</head>
+<body class="h-screen w-screen desktop-bg text-white relative">
+
+    <!-- Üst Bar -->
+    <div class="absolute top-0 left-0 w-full h-12 glass-panel flex items-center justify-between px-4 z-40 shadow-md">
+        <div class="flex items-center space-x-4">
+            <div class="font-bold text-lg tracking-wide flex items-center gap-2 text-blue-400">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-1.7-1.3-3-3-3h-11a3 3 0 0 0-3 3v1a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-1Z"/><path d="M7 16V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8"/></svg>
+                BulutOS (Nakil)
+            </div>
+            
+            <div id="breadcrumbs" class="flex items-center space-x-2 text-sm text-gray-300 ml-6 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+                <span class="cursor-pointer hover:text-white" onclick="navigateTo('root')">Masaüstü</span>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <button onclick="document.getElementById('fileInput').click()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm transition shadow-lg shadow-blue-500/30">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                Dosya Yükle
+            </button>
+            <input type="file" id="fileInput" class="hidden" multiple onchange="handleFileUpload(event)">
+
+            <button onclick="createFolderPrompt()" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-md text-sm transition shadow-lg border border-gray-600 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><line x1="12" x2="12" y1="10" y2="16"/><line x1="9" x2="15" y1="13" y2="13"/></svg>
+                Klasör +
+            </button>
+            
+            <div id="user-status" class="text-xs text-gray-400 border-l border-gray-600 pl-3">
+                ...
+            </div>
+        </div>
+    </div>
+
+    <!-- Masaüstü Alanı -->
+    <div id="desktop-area" class="w-full h-full relative pt-14 z-0" onmousedown="deselectAll(event)"></div>
+
+    <!-- Yükleniyor Göstergesi -->
+    <div id="loading" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-50">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+        <p class="text-gray-300 bg-black/50 px-3 py-1 rounded">Sistem Başlatılıyor...</p>
+    </div>
+
+    <!-- Upload Progress Toast -->
+    <div id="upload-toast" class="hidden fixed bottom-5 right-5 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 overflow-hidden">
+        <div class="p-3 flex items-center justify-between border-b border-slate-700 bg-slate-900">
+            <span class="text-sm font-semibold text-white">Storage'a Yükleniyor...</span>
+            <span id="upload-percent" class="text-xs text-blue-400">0%</span>
+        </div>
+        <div class="p-3">
+            <p id="upload-filename" class="text-xs text-gray-400 truncate mb-2">dosya.jpg</p>
+            <div class="w-full bg-slate-700 rounded-full h-2.5">
+                <div id="upload-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Viewer Modal -->
+    <div id="file-viewer" class="hidden fixed inset-0 z-[9999] viewer-backdrop flex items-center justify-center">
+        <div class="bg-slate-900 border border-slate-600 rounded-lg shadow-2xl w-[90%] h-[85%] md:w-3/4 md:h-3/4 flex flex-col overflow-hidden relative animate-[fadeIn_0.2s_ease-out]">
+            
+            <!-- Window Header -->
+            <div class="h-12 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4 flex-shrink-0">
+                <div class="flex items-center gap-2 overflow-hidden mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <span id="viewer-title" class="text-sm font-medium text-gray-200 truncate">Dosya Önizleme</span>
+                </div>
+                
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <button id="download-btn" onclick="downloadCurrentFile()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded transition text-sm font-medium shadow-md shadow-blue-500/20" title="Dosyayı İndir">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        İndir
+                    </button>
+                    <button onclick="closeViewer()" class="text-gray-400 hover:text-white hover:bg-red-500/20 p-2 rounded transition ml-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Window Content -->
+            <div id="viewer-content" class="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-950/50 relative"></div>
+        </div>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, query, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+        // --- ÖZEL FIREBASE KONFIGURASYONU (Nakil) ---
+        // Sizin sağladığınız proje bilgileri
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSGyy19Y1UNTcoJ6j0-tdatqC4x16xe2A",
+            authDomain: "nakil-7bd0d.firebaseapp.com",
+            projectId: "nakil-7bd0d",
+            storageBucket: "nakil-7bd0d.firebasestorage.app",
+            messagingSenderId: "494337564662",
+            appId: "1:494337564662:web:7296580f2de928fce5b1d7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app); 
+        
+        // Klasör yapısında kullanılacak ID (Kendi proje ID'niz)
+        const appId = "nakil-7bd0d";
+
+        let currentUser = null;
+        let currentFolderId = 'root'; 
+        let folderPath = [{id: 'root', name: 'Masaüstü'}]; 
+        let allItems = []; 
+        let unsubscribe = null;
+        let currentViewedItem = null;
+
+        // --- State ---
+        let isDragging = false;
+        let dragItem = null;
+        let dragOffset = { x: 0, y: 0 };
+        let potentialDropTarget = null;
+        let startDragPos = { x: 0, y: 0 };
+
+        // --- Auth ---
+        const initAuth = async () => {
+            try {
+                // Sadece Anonim giriş deniyoruz çünkü kendi projenizde "Anonymous Auth" açtınız.
+                // Canvas ortam token'ı burada çalışmaz çünkü proje farklı.
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Giriş hatası:", error);
+                document.getElementById('loading').innerHTML = `<p class="bg-red-900/80 p-4 rounded text-white">Giriş Hatası: ${error.message}<br>Lütfen Firebase Console'da Authentication > Sign-in method > Anonymous seçeneğinin açık olduğundan emin olun.</p>`;
+            }
+        };
+
+        initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('user-status').innerText = `ID: ${user.uid.slice(0, 5)}`;
+                startListening();
+            }
+        });
+
+        // --- Firestore ---
+        function startListening() {
+            if (!currentUser) return;
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'filesystem');
+
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                allItems = [];
+                snapshot.forEach((doc) => {
+                    allItems.push({ id: doc.id, ...doc.data() });
+                });
+                renderDesktop();
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) loadingEl.style.display = 'none';
+            }, (error) => {
+                console.error("Veri hatası:", error);
+                document.getElementById('loading').innerHTML = `<p class="bg-red-900/80 p-4 rounded text-white">Veri Hatası: ${error.message}<br>Lütfen Firestore Kurallarını (Rules) güncellediğinizden emin olun.</p>`;
+            });
+        }
+
+        // --- Render ---
+        function renderDesktop() {
+            const desktop = document.getElementById('desktop-area');
+            desktop.innerHTML = ''; 
+
+            const currentItems = allItems.filter(item => item.parentId === currentFolderId);
+
+            currentItems.forEach(item => {
+                const el = createIconElement(item);
+                desktop.appendChild(el);
+            });
+
+            updateBreadcrumbs();
+        }
+
+        function createIconElement(item) {
+            const div = document.createElement('div');
+            div.className = `icon-item absolute flex flex-col items-center justify-start w-28 h-28 p-1 cursor-pointer z-10`;
+            div.style.left = (item.x || 20) + 'px';
+            div.style.top = (item.y || 80) + 'px';
+            div.setAttribute('data-id', item.id);
+            div.setAttribute('data-type', item.type);
+
+            div.addEventListener('mousedown', (e) => prepareDrag(e, item));
+
+            div.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                if (item.type === 'folder') {
+                    openFolder(item.id, item.name);
+                } else {
+                    openFileViewer(item); 
+                }
+            });
+
+            let visualContent = '';
+            const ext = item.name.split('.').pop().toLowerCase();
+
+            if (item.type === 'folder') {
+                visualContent = `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-yellow-400 drop-shadow-md mb-1" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`;
+            } else if (item.content && ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                // Eğer URL ise (yeni sistem) veya Base64 ise (eski sistem) çalışır
+                visualContent = `
+                    <div class="w-16 h-16 mb-1 rounded overflow-hidden bg-gray-800 border border-gray-600 shadow-md flex items-center justify-center">
+                        <img src="${item.content}" class="thumb-img" draggable="false" alt="thumb">
+                    </div>
+                `;
+            } else {
+                let colorClass = "text-gray-200";
+                let iconSvg = '';
+                
+                if(['mp3', 'wav', 'ogg'].includes(ext)) {
+                    colorClass = "text-green-400";
+                    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 ${colorClass} drop-shadow-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+                } else if(['mp4', 'webm', 'mov'].includes(ext)) {
+                    colorClass = "text-red-400";
+                    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 ${colorClass} drop-shadow-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>`;
+                } else {
+                    colorClass = "text-blue-400";
+                    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 ${colorClass} drop-shadow-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>`;
+                }
+                visualContent = `<div class="mb-1">${iconSvg}</div>`;
+            }
+
+            div.innerHTML = `
+                ${visualContent}
+                <span class="text-xs text-center text-white font-medium drop-shadow-md truncate w-full px-1 rounded bg-black/40 hover:bg-black/60 transition-colors">${item.name}</span>
+            `;
+
+            return div;
+        }
+
+        window.navigateTo = (folderId) => {
+            if (folderId === 'root') {
+                currentFolderId = 'root';
+                folderPath = [{id: 'root', name: 'Masaüstü'}];
+            } else {
+                const index = folderPath.findIndex(f => f.id === folderId);
+                if (index !== -1) {
+                    currentFolderId = folderId;
+                    folderPath = folderPath.slice(0, index + 1);
+                }
+            }
+            renderDesktop();
+        }
+
+        function openFolder(folderId, folderName) {
+            currentFolderId = folderId;
+            folderPath.push({id: folderId, name: folderName});
+            renderDesktop();
+        }
+
+        function updateBreadcrumbs() {
+            const container = document.getElementById('breadcrumbs');
+            container.innerHTML = folderPath.map((folder, index) => {
+                const isLast = index === folderPath.length - 1;
+                return `
+                    <div class="flex items-center">
+                        ${index > 0 ? '<span class="mx-1 text-gray-500">/</span>' : ''}
+                        <span class="${isLast ? 'text-white font-semibold' : 'cursor-pointer hover:text-white'}" 
+                              onclick="${!isLast ? `MapsTo('${folder.id}')` : ''}">
+                            ${folder.name}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.createFolderPrompt = async () => {
+            if (!currentUser) return alert("Bağlanıyor...");
+            const name = prompt("Klasör Adı:", "Yeni Klasör");
+            if (name) {
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'filesystem'), {
+                        name: name,
+                        type: 'folder',
+                        parentId: currentFolderId,
+                        x: 50 + (Math.random() * 200),
+                        y: 50 + (Math.random() * 200),
+                        createdAt: Date.now()
+                    });
+                } catch (e) {
+                    alert("Hata: " + e.message);
+                }
+            }
+        };
+
+        // --- FIREBASE STORAGE YÜKLEME ---
+        window.handleFileUpload = (event) => {
+            if (!currentUser) return;
+            const files = event.target.files;
+            if (!files.length) return;
+
+            const toast = document.getElementById('upload-toast');
+            const toastName = document.getElementById('upload-filename');
+            const toastBar = document.getElementById('upload-bar');
+            const toastPercent = document.getElementById('upload-percent');
+
+            toast.classList.remove('hidden');
+
+            Array.from(files).forEach(file => {
+                // Dosya yolu: files/{userId}/{timestamp}_{filename}
+                const storageRef = ref(storage, `files/${currentUser.uid}/${Date.now()}_${file.name}`);
+                
+                // Upload Task başlat
+                const uploadTask = uploadBytesResumable(storageRef, file);
+
+                toastName.innerText = file.name;
+
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        toastBar.style.width = progress + '%';
+                        toastPercent.innerText = Math.round(progress) + '%';
+                    }, 
+                    (error) => {
+                        console.error("Yükleme hatası:", error);
+                        alert("Yükleme başarısız oldu. (Hata Kodu: " + error.code + ")");
+                        toast.classList.add('hidden');
+                    }, 
+                    () => {
+                        // Yükleme tamamlandı, URL al
+                        getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
+                            try {
+                                // Firestore'a URL'yi kaydet
+                                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'filesystem'), {
+                                    name: file.name,
+                                    type: 'file',
+                                    size: file.size,
+                                    parentId: currentFolderId,
+                                    content: downloadURL, // Base64 yerine URL
+                                    x: 100 + (Math.random() * 50),
+                                    y: 100 + (Math.random() * 50),
+                                    createdAt: Date.now()
+                                });
+                                
+                                // Toast gizle
+                                setTimeout(() => {
+                                    toast.classList.add('hidden');
+                                }, 1000);
+                            } catch (e) {
+                                console.error("Firestore kaydetme hatası:", e);
+                            }
+                        });
+                    }
+                );
+            });
+            event.target.value = '';
+        };
+
+        // --- DOSYA GÖRÜNTÜLEYİCİ (VIEWER) ---
+        window.openFileViewer = async (item) => {
+            const viewer = document.getElementById('file-viewer');
+            const contentDiv = document.getElementById('viewer-content');
+            const titleDiv = document.getElementById('viewer-title');
+            const downloadBtn = document.getElementById('download-btn');
+
+            if (!item.content) {
+                alert("Dosya içeriği bulunamadı.");
+                return;
+            }
+
+            currentViewedItem = item;
+            titleDiv.innerText = item.name;
+            contentDiv.innerHTML = '<div class="animate-pulse text-blue-400">Yükleniyor...</div>'; // Loading state
+            
+            // İndirme butonunun text'ini güncelle
+            downloadBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                İndir (${formatBytes(item.size)})
+            `;
+
+            viewer.classList.remove('hidden');
+
+            const ext = item.name.split('.').pop().toLowerCase();
+            let element = null;
+
+            try {
+                if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                    element = document.createElement('img');
+                    element.src = item.content;
+                    element.className = "max-w-full max-h-full object-contain shadow-lg rounded";
+                } 
+                else if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) {
+                    element = document.createElement('video');
+                    element.src = item.content;
+                    element.controls = true;
+                    element.autoplay = true;
+                    element.className = "max-w-full max-h-full shadow-lg rounded";
+                }
+                else if (['mp3', 'wav'].includes(ext)) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = "flex flex-col items-center gap-4 bg-slate-800 p-8 rounded-xl shadow-xl";
+                    const icon = document.createElement('div');
+                    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-blue-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+                    element = document.createElement('audio');
+                    element.src = item.content;
+                    element.controls = true;
+                    wrapper.appendChild(icon);
+                    wrapper.appendChild(element);
+                    element = wrapper; 
+                }
+                else if (['txt', 'html', 'js', 'css', 'json', 'md'].includes(ext)) {
+                    // Metin dosyaları için içerik fetch edilmeli
+                    let textContent = "";
+                    if (item.content.startsWith('http')) {
+                        const response = await fetch(item.content);
+                        textContent = await response.text();
+                    } else {
+                        const base64Str = item.content.split(',')[1];
+                        textContent = atob(base64Str);
+                    }
+                    
+                    element = document.createElement('div');
+                    const pre = document.createElement('pre');
+                    pre.innerText = textContent;
+                    pre.className = "text-green-400 font-mono text-sm p-4 w-full h-full overflow-auto whitespace-pre-wrap select-text";
+                    element.appendChild(pre);
+                    element.className = "w-full h-full bg-slate-900 border border-slate-700 rounded p-2 overflow-hidden";
+                }
+                else {
+                    element = document.createElement('div');
+                    element.className = "text-center text-gray-400";
+                    element.innerHTML = `<p class="text-xl">Önizleme Yok</p><p class="text-sm mt-2">${ext.toUpperCase()} dosyası</p>`;
+                }
+
+                contentDiv.innerHTML = '';
+                contentDiv.appendChild(element);
+
+            } catch (error) {
+                console.error(error);
+                contentDiv.innerHTML = '<div class="text-red-400">Dosya yüklenirken hata oluştu.</div>';
+            }
+        };
+
+        window.closeViewer = () => {
+            const viewer = document.getElementById('file-viewer');
+            const contentDiv = document.getElementById('viewer-content');
+            contentDiv.innerHTML = '';
+            viewer.classList.add('hidden');
+            currentViewedItem = null;
+        };
+
+        // --- GÜVENLİ İNDİRME ---
+        window.downloadCurrentFile = async () => {
+            if (!currentViewedItem || !currentViewedItem.content) return;
+            
+            const btn = document.getElementById('download-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "İndiriliyor...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(currentViewedItem.content);
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = currentViewedItem.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                console.error("İndirme hatası:", error);
+                window.open(currentViewedItem.content, '_blank');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        // --- Sürükle ve Bırak ---
+        function prepareDrag(e, item) {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+            dragItem = e.currentTarget;
+            const rect = dragItem.getBoundingClientRect();
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            startDragPos.x = e.clientX;
+            startDragPos.y = e.clientY;
+            isDragging = false; 
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            if (!dragItem) return;
+            if (!isDragging) {
+                const moveX = Math.abs(e.clientX - startDragPos.x);
+                const moveY = Math.abs(e.clientY - startDragPos.y);
+                if (moveX > 5 || moveY > 5) {
+                    isDragging = true;
+                    dragItem.classList.add('drag-active');
+                    document.querySelectorAll('.icon-item').forEach(el => el.classList.remove('selected'));
+                    dragItem.classList.add('selected');
+                } else { return; }
+            }
+            e.preventDefault();
+            const x = e.clientX - dragOffset.x;
+            const y = e.clientY - dragOffset.y;
+            dragItem.style.left = `${x}px`;
+            dragItem.style.top = `${y}px`;
+            checkCollision(dragItem);
+        });
+
+        document.addEventListener('mouseup', async (e) => {
+            if (!dragItem) return;
+            if (!isDragging) { dragItem = null; return; }
+
+            const currentDragItem = dragItem;
+            const currentDropTarget = potentialDropTarget;
+            const itemId = currentDragItem.getAttribute('data-id');
+            const itemType = currentDragItem.getAttribute('data-type');
+            
+            if (currentDropTarget && itemType !== 'folder') {
+                const folderId = currentDropTarget.getAttribute('data-id');
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'filesystem', itemId);
+                    await updateDoc(docRef, { parentId: folderId, x: 50, y: 50 });
+                } catch (err) { console.error(err); }
+            } else {
+                const newX = parseFloat(currentDragItem.style.left);
+                const newY = parseFloat(currentDragItem.style.top);
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'filesystem', itemId);
+                    await updateDoc(docRef, { x: newX, y: newY });
+                } catch (err) { console.error(err); }
+            }
+
+            if (currentDragItem) currentDragItem.classList.remove('drag-active');
+            if (currentDropTarget) currentDropTarget.classList.remove('drop-target');
+            isDragging = false;
+            dragItem = null;
+            potentialDropTarget = null;
+        });
+
+        function checkCollision(draggedEl) {
+            const dragRect = draggedEl.getBoundingClientRect();
+            const centerX = dragRect.left + dragRect.width / 2;
+            const centerY = dragRect.top + dragRect.height / 2;
+            const folders = document.querySelectorAll('.icon-item[data-type="folder"]');
+            let found = null;
+            folders.forEach(folder => {
+                if (folder === draggedEl) return;
+                const folderRect = folder.getBoundingClientRect();
+                if (centerX >= folderRect.left && centerX <= folderRect.right && centerY >= folderRect.top && centerY <= folderRect.bottom) {
+                    found = folder;
+                }
+                folder.classList.remove('drop-target');
+            });
+            if (found) { found.classList.add('drop-target'); potentialDropTarget = found; } 
+            else { potentialDropTarget = null; }
+        }
+
+        window.deselectAll = (e) => {
+            if(e.target.id === 'desktop-area') {
+                document.querySelectorAll('.icon-item').forEach(el => el.classList.remove('selected'));
+            }
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+    </script>
+</body>
+</html>
