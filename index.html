@@ -87,7 +87,7 @@
         <div class="flex items-center space-x-4">
             <div class="font-bold text-lg tracking-wide flex items-center gap-2 text-blue-400">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-1.7-1.3-3-3-3h-11a3 3 0 0 0-3 3v1a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-1Z"/><path d="M7 16V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8"/></svg>
-                BulutOS (Nakil)
+                BulutOS (Nakil - Lite)
             </div>
             
             <div id="breadcrumbs" class="flex items-center space-x-2 text-sm text-gray-300 ml-6 bg-white/10 px-3 py-1 rounded-full border border-white/10">
@@ -125,7 +125,7 @@
     <!-- Upload Progress Toast -->
     <div id="upload-toast" class="hidden fixed bottom-5 right-5 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 overflow-hidden">
         <div class="p-3 flex items-center justify-between border-b border-slate-700 bg-slate-900">
-            <span class="text-sm font-semibold text-white">Storage'a Yükleniyor...</span>
+            <span class="text-sm font-semibold text-white">Yükleniyor (Veritabanı)...</span>
             <span id="upload-percent" class="text-xs text-blue-400">0%</span>
         </div>
         <div class="p-3">
@@ -168,7 +168,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, query, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+        // Storage importu kaldırıldı
 
         // --- ÖZEL FIREBASE KONFIGURASYONU (Nakil) ---
         // Sizin sağladığınız proje bilgileri
@@ -176,7 +176,7 @@
             apiKey: "AIzaSyDSGyy19Y1UNTcoJ6j0-tdatqC4x16xe2A",
             authDomain: "nakil-7bd0d.firebaseapp.com",
             projectId: "nakil-7bd0d",
-            storageBucket: "nakil-7bd0d.firebasestorage.app",
+            storageBucket: "nakil-7bd0d.firebasestorage.app", // Artık kullanılmıyor ama kalsın zararı yok
             messagingSenderId: "494337564662",
             appId: "1:494337564662:web:7296580f2de928fce5b1d7"
         };
@@ -184,9 +184,8 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app); 
         
-        // Klasör yapısında kullanılacak ID (Kendi proje ID'niz)
+        // Klasör yapısında kullanılacak ID
         const appId = "nakil-7bd0d";
 
         let currentUser = null;
@@ -206,12 +205,10 @@
         // --- Auth ---
         const initAuth = async () => {
             try {
-                // Sadece Anonim giriş deniyoruz çünkü kendi projenizde "Anonymous Auth" açtınız.
-                // Canvas ortam token'ı burada çalışmaz çünkü proje farklı.
                 await signInAnonymously(auth);
             } catch (error) {
                 console.error("Giriş hatası:", error);
-                document.getElementById('loading').innerHTML = `<p class="bg-red-900/80 p-4 rounded text-white">Giriş Hatası: ${error.message}<br>Lütfen Firebase Console'da Authentication > Sign-in method > Anonymous seçeneğinin açık olduğundan emin olun.</p>`;
+                document.getElementById('loading').innerHTML = `<p class="bg-red-900/80 p-4 rounded text-white">Giriş Hatası: ${error.message}</p>`;
             }
         };
 
@@ -240,7 +237,7 @@
                 if (loadingEl) loadingEl.style.display = 'none';
             }, (error) => {
                 console.error("Veri hatası:", error);
-                document.getElementById('loading').innerHTML = `<p class="bg-red-900/80 p-4 rounded text-white">Veri Hatası: ${error.message}<br>Lütfen Firestore Kurallarını (Rules) güncellediğinizden emin olun.</p>`;
+                document.getElementById('loading').innerHTML = `<p class="bg-red-900/80 p-4 rounded text-white">Veri Hatası: ${error.message}</p>`;
             });
         }
 
@@ -284,7 +281,7 @@
             if (item.type === 'folder') {
                 visualContent = `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-yellow-400 drop-shadow-md mb-1" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`;
             } else if (item.content && ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-                // Eğer URL ise (yeni sistem) veya Base64 ise (eski sistem) çalışır
+                // Base64 görsel
                 visualContent = `
                     <div class="w-16 h-16 mb-1 rounded overflow-hidden bg-gray-800 border border-gray-600 shadow-md flex items-center justify-center">
                         <img src="${item.content}" class="thumb-img" draggable="false" alt="thumb">
@@ -370,8 +367,8 @@
             }
         };
 
-        // --- FIREBASE STORAGE YÜKLEME ---
-        window.handleFileUpload = (event) => {
+        // --- DOSYA YÜKLEME (Storage Olmadan, Base64 ile Firestore'a) ---
+        window.handleFileUpload = async (event) => {
             if (!currentUser) return;
             const files = event.target.files;
             if (!files.length) return;
@@ -383,55 +380,62 @@
 
             toast.classList.remove('hidden');
 
-            Array.from(files).forEach(file => {
-                // Dosya yolu: files/{userId}/{timestamp}_{filename}
-                const storageRef = ref(storage, `files/${currentUser.uid}/${Date.now()}_${file.name}`);
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 
-                // Upload Task başlat
-                const uploadTask = uploadBytesResumable(storageRef, file);
+                // Firestore document limit kontrolü (1MB altı güvenli sınır ~900KB)
+                if(file.size > 900 * 1024) {
+                    alert(`${file.name} dosyası çok büyük! (Limit: ~900KB). Bu ücretsiz modda sadece küçük dosyalar yüklenebilir.`);
+                    continue;
+                }
 
                 toastName.innerText = file.name;
+                toastBar.style.width = '0%';
+                toastPercent.innerText = '0%';
 
-                uploadTask.on('state_changed', 
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        toastBar.style.width = progress + '%';
-                        toastPercent.innerText = Math.round(progress) + '%';
-                    }, 
-                    (error) => {
-                        console.error("Yükleme hatası:", error);
-                        alert("Yükleme başarısız oldu. (Hata Kodu: " + error.code + ")");
-                        toast.classList.add('hidden');
-                    }, 
-                    () => {
-                        // Yükleme tamamlandı, URL al
-                        getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
-                            try {
-                                // Firestore'a URL'yi kaydet
-                                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'filesystem'), {
-                                    name: file.name,
-                                    type: 'file',
-                                    size: file.size,
-                                    parentId: currentFolderId,
-                                    content: downloadURL, // Base64 yerine URL
-                                    x: 100 + (Math.random() * 50),
-                                    y: 100 + (Math.random() * 50),
-                                    createdAt: Date.now()
-                                });
-                                
-                                // Toast gizle
-                                setTimeout(() => {
-                                    toast.classList.add('hidden');
-                                }, 1000);
-                            } catch (e) {
-                                console.error("Firestore kaydetme hatası:", e);
-                            }
-                        });
-                    }
-                );
-            });
-            event.target.value = '';
+                const base64Data = await readFileAsDataURL(file, (percent) => {
+                    toastBar.style.width = `${percent}%`;
+                    toastPercent.innerText = `${percent}%`;
+                });
+
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'filesystem'), {
+                        name: file.name,
+                        type: 'file',
+                        size: file.size,
+                        parentId: currentFolderId,
+                        content: base64Data, // Dosya veritabanına metin olarak kaydediliyor
+                        x: 100 + (Math.random() * 50),
+                        y: 100 + (Math.random() * 50),
+                        createdAt: Date.now()
+                    });
+                } catch (e) {
+                    console.error("Yükleme hatası:", e);
+                    alert("Yükleme başarısız. Veritabanı limiti aşılmış olabilir.");
+                }
+            }
+
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                event.target.value = '';
+            }, 1000);
         };
+
+        // Dosyayı Base64'e çeviren yardımcı fonksiyon
+        function readFileAsDataURL(file, onProgress) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e);
+                reader.onprogress = (data) => {
+                    if (data.lengthComputable) {                                            
+                        const progress = parseInt( ((data.loaded / data.total) * 100), 10 );
+                        onProgress(progress);
+                    }
+                }
+                reader.readAsDataURL(file);
+            });
+        }
 
         // --- DOSYA GÖRÜNTÜLEYİCİ (VIEWER) ---
         window.openFileViewer = async (item) => {
@@ -447,9 +451,8 @@
 
             currentViewedItem = item;
             titleDiv.innerText = item.name;
-            contentDiv.innerHTML = '<div class="animate-pulse text-blue-400">Yükleniyor...</div>'; // Loading state
+            contentDiv.innerHTML = '<div class="animate-pulse text-blue-400">Yükleniyor...</div>'; 
             
-            // İndirme butonunun text'ini güncelle
             downloadBtn.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 İndir (${formatBytes(item.size)})
@@ -461,6 +464,9 @@
             let element = null;
 
             try {
+                // Not: Artık content her zaman Base64 veya eski sistemden kalan URL olabilir.
+                // Eğer Base64 ise doğrudan src olarak kullanılabilir.
+                
                 if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
                     element = document.createElement('img');
                     element.src = item.content;
@@ -486,14 +492,16 @@
                     element = wrapper; 
                 }
                 else if (['txt', 'html', 'js', 'css', 'json', 'md'].includes(ext)) {
-                    // Metin dosyaları için içerik fetch edilmeli
                     let textContent = "";
                     if (item.content.startsWith('http')) {
                         const response = await fetch(item.content);
                         textContent = await response.text();
-                    } else {
+                    } else if (item.content.startsWith('data:')) {
+                        // Base64 Data URL
                         const base64Str = item.content.split(',')[1];
                         textContent = atob(base64Str);
+                    } else {
+                        textContent = item.content; // Düz metin ise
                     }
                     
                     element = document.createElement('div');
@@ -536,17 +544,28 @@
             btn.disabled = true;
 
             try {
-                const response = await fetch(currentViewedItem.content);
-                const blob = await response.blob();
-                const blobUrl = window.URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.href = blobUrl;
-                a.download = currentViewedItem.name;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(blobUrl);
+                // Eğer data URL ise (Base64) doğrudan indirilebilir
+                if (currentViewedItem.content.startsWith('data:')) {
+                    const a = document.createElement('a');
+                    a.href = currentViewedItem.content;
+                    a.download = currentViewedItem.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } else {
+                    // URL ise fetch et
+                    const response = await fetch(currentViewedItem.content);
+                    const blob = await response.blob();
+                    const blobUrl = window.URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = currentViewedItem.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(blobUrl);
+                }
             } catch (error) {
                 console.error("İndirme hatası:", error);
                 window.open(currentViewedItem.content, '_blank');
